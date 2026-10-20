@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">Prueba</string>
+    <string name="home_screen">Inicio</string>
+    <string name="back_btn_desc">Mensaje de snack bar</string>
+    <string name="home_fab_text">Mensaje de toast</string>
+    <string name="bottom_app_bar"> Inferiror </string>
+    <string name="materia">Aplicación Movil</string>
+    <string name="nombre">Gustavo</string>
+    <string name="apellido">Martinez Montes</string>
+    <string name="figura_android">Ilustración de Android</string>
+</resources>

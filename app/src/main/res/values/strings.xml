@@ -1,11 +1,25 @@
 <resources>
     <string name="app_name">Prueba</string>
+    <string name="title">Inicio</string>
     <string name="home_screen">Inicio</string>
     <string name="back_btn_desc">Mensaje de snack bar</string>
     <string name="home_fab_text">Mensaje de toast</string>
-    <string name="bottom_app_bar"> Inferiror </string>
-    <string name="materia">Aplicación Movil</string>
+    <string name="bottom_app_bar">Inferior</string>
+    <string name="materia">Aplicación Móvil</string>
     <string name="nombre">Gustavo</string>
     <string name="apellido">Martinez Montes</string>
     <string name="figura_android">Ilustración de Android</string>
+    <string name="image_description">Descripción de imagen</string>
+    <string name="texto_snackbar">Hola desde el Snackbar!</string>
+    <string name="options_menu">Menú de opciones</string>
+    <string name="profile">Perfil</string>
+    <string name="config">Configuración</string>
+    <string name="logout">Cerrar sesión</string>
+    <string name="title_activity_second">SecondActivity</string>
+    <string name="calendar">Calendario</string>
+    <string name="alarm">Alarma</string>
+    <string name="files">Archivos y descargas</string>
+    <string name="second_title">Second Activity</string>
+    <string name="second_desc">Esta pantalla se abrió desde el ícono de compartir.</string>
+    <string name="second_back">Regresar</string>
 </resources>

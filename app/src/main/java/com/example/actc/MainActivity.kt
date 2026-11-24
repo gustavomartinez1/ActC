@@ -17,6 +17,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,12 +28,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddLink
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
@@ -41,13 +45,19 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -56,8 +66,10 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,6 +79,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -78,8 +91,14 @@ import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.example.actc.ui.theme.ActCTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : ComponentActivity() {
 
@@ -129,19 +148,83 @@ fun openWebScreen(context: Context) {
     }
 }
 
-// Intent explícito: indica la clase exacta de la Activity que se va a abrir
 fun openSecondActivity(context: Context) {
     val intent = Intent(context, SecondActivity::class.java)
     context.startActivity(intent)
 }
 
-// Intent implícito: Android busca una app instalada que pueda atenderlo
 fun openExternalApp(context: Context, intent: Intent, appName: String) {
     try {
         context.startActivity(intent)
     } catch (_: ActivityNotFoundException) {
         Toast.makeText(context, "No se encontró la app de $appName", Toast.LENGTH_LONG).show()
+    } catch (_: SecurityException) {
+        Toast.makeText(context, "Sin permiso para abrir $appName", Toast.LENGTH_LONG).show()
     }
+}
+
+// Archivo de prueba público de 12.5 MB (servidor de pruebas de velocidad de OVH)
+private const val URL_DESCARGA = "https://proof.ovh.net/files/100Mb.dat"
+
+// Descarga un archivo de internet y lo guarda en la memoria interna de la app.
+// Regresa cuántos bytes se descargaron.
+suspend fun descargarArchivo(context: Context, onProgress: (Float) -> Unit): Long =
+    // Dispatchers.IO: la descarga corre en un hilo de fondo, no en el principal.
+    // En el hilo principal Android ni la permite: lanza NetworkOnMainThreadException.
+    withContext(Dispatchers.IO) {
+        val conexion = URL(URL_DESCARGA).openConnection() as HttpURLConnection
+        try {
+            val total = conexion.contentLengthLong
+            val destino = File(context.filesDir, "descarga.dat")
+            var descargados = 0L
+            var ultimoPorcentaje = 0
+            conexion.inputStream.use { entrada ->
+                destino.outputStream().use { salida ->
+                    val buffer = ByteArray(8 * 1024)
+                    var leidos = entrada.read(buffer)
+                    while (leidos != -1) {
+                        salida.write(buffer, 0, leidos)
+                        descargados += leidos
+                        val porcentaje = if (total > 0) (descargados * 100 / total).toInt() else 0
+                        if (porcentaje != ultimoPorcentaje) {
+                            ultimoPorcentaje = porcentaje
+                            // La pantalla solo se actualiza desde el hilo principal (Main)
+                            withContext(Dispatchers.Main) { onProgress(porcentaje / 100f) }
+                        }
+                        leidos = entrada.read(buffer)
+                    }
+                }
+            }
+            descargados
+        } finally {
+            conexion.disconnect()
+        }
+    }
+
+@Composable
+fun DrawerContent(onHome: () -> Unit, onSecond: () -> Unit, onDownload: () -> Unit) {
+    ModalDrawerSheet {
+        Text(
+            text = stringResource(R.string.drawer_header),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(16.dp)
+        )
+        HorizontalDivider()
+        DrawerItem(R.string.drawer_home, Icons.Default.Home, selected = true, onClick = onHome)
+        DrawerItem(R.string.drawer_second, Icons.AutoMirrored.Filled.OpenInNew, onClick = onSecond)
+        DrawerItem(R.string.drawer_download, Icons.Default.Download, onClick = onDownload)
+    }
+}
+
+@Composable
+fun DrawerItem(label: Int, icon: ImageVector, selected: Boolean = false, onClick: () -> Unit) {
+    NavigationDrawerItem(
+        label = { Text(stringResource(label)) },
+        icon = { Icon(icon, contentDescription = null) },
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+    )
 }
 
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -157,90 +240,141 @@ fun ViewContainer(){
     val scope = rememberCoroutineScope()
     val mensajeSnackbar = stringResource(id = R.string.texto_snackbar)
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title)) },
-                colors = topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White,
-                    actionIconContentColor = Color.White
-                ),
-                navigationIcon = {
-                    IconButton(onClick = { /* Acción navegación */ }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back_btn_desc),
-                            tint = Color.White
-                        )
-                    }
+    // Estado del menú lateral (drawer): empieza cerrado
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    // Estado de la descarga: si está corriendo y cuánto lleva (de 0.0 a 1.0)
+    var cargando by remember { mutableStateOf(false) }
+    var progreso by remember { mutableFloatStateOf(0f) }
+    val mensajeDescarga = stringResource(id = R.string.download_done)
+    val mensajeError = stringResource(id = R.string.download_error)
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            DrawerContent(
+                onHome = { scope.launch { drawerState.close() } },
+                onSecond = {
+                    scope.launch { drawerState.close() }
+                    openSecondActivity(context)
                 },
-                actions = {
-                    IconButton(onClick = { openWebScreen(context) }) {
-                        Icon(
-                            imageVector = Icons.Default.AddLink,
-                            contentDescription = "Marcar como favorito",
-                            tint = Color.White
-                        )
-                    }
-
-                    IconButton(onClick = { openSecondActivity(context) }) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Compartir",
-                            tint = Color.White
-                        )
-                    }
-                    DropDownMenu()
-                }
-            )
-        },
-        bottomBar = {
-            BottomAppBar(
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.primary,
-            ) {
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                    text = stringResource(id = R.string.bottom_app_bar),
-                    fontSize = 18.sp,
-                    color = Color.White
-                )
-            }
-        },
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
-        },
-
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                text = { Text("Mostrar")},
-                icon = { Icon(Icons.Default.Add, contentDescription = "") },
-                onClick={
-                    scope.launch {
-                        val result = snackbarHostState
-                            .showSnackbar(
-                                message = mensajeSnackbar,
-                                actionLabel = "Action",
-                                duration = SnackbarDuration.Indefinite
-                            )
-                        when (result) {
-                            SnackbarResult.ActionPerformed -> {
-                                // Action performed
+                onDownload = {
+                    if (!cargando) {
+                        // launch arranca la corrutina sin detener la app
+                        scope.launch {
+                            drawerState.close()
+                            progreso = 0f
+                            cargando = true
+                            val mensaje = try {
+                                val bytes = descargarArchivo(context) { progreso = it }
+                                "$mensajeDescarga (${bytes / (1024 * 1024)} MB)"
+                            } catch (_: IOException) {
+                                mensajeError // sin internet o falla del servidor: no truena
                             }
-                            SnackbarResult.Dismissed -> {
-                                // Action dismissed
-                            }
+                            cargando = false
+                            snackbarHostState.showSnackbar(mensaje)
                         }
                     }
                 }
             )
         }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.title)) },
+                    colors = topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        titleContentColor = Color.White,
+                        navigationIconContentColor = Color.White,
+                        actionIconContentColor = Color.White
+                    ),
+                    navigationIcon = {
+                        // Abrir el drawer es una animación, por eso se hace dentro de una corrutina
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = stringResource(R.string.drawer_open),
+                                tint = Color.White
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { openWebScreen(context) }) {
+                            Icon(
+                                imageVector = Icons.Default.AddLink,
+                                contentDescription = "Marcar como favorito",
+                                tint = Color.White
+                            )
+                        }
 
-    ){ innerPadding ->
-        ContentView(modifier = Modifier.padding(innerPadding))
+                        IconButton(onClick = { openSecondActivity(context) }) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Compartir",
+                                tint = Color.White
+                            )
+                        }
+                        DropDownMenu()
+                    }
+                )
+            },
+            bottomBar = {
+                BottomAppBar(
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center,
+                        text = stringResource(id = R.string.bottom_app_bar),
+                        fontSize = 18.sp,
+                        color = Color.White
+                    )
+                }
+            },
+            snackbarHost = {
+                SnackbarHost(hostState = snackbarHostState)
+            },
+
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    text = { Text("Mostrar")},
+                    icon = { Icon(Icons.Default.Add, contentDescription = "") },
+                    onClick={
+                        scope.launch {
+                            val result = snackbarHostState
+                                .showSnackbar(
+                                    message = mensajeSnackbar,
+                                    actionLabel = "Action",
+                                    duration = SnackbarDuration.Indefinite
+                                )
+                            when (result) {
+                                SnackbarResult.ActionPerformed -> {
+                                    // Action performed
+                                }
+                                SnackbarResult.Dismissed -> {
+                                    // Action dismissed
+                                }
+                            }
+                        }
+                    }
+                )
+            }
+
+        ){ innerPadding ->
+            Column(modifier = Modifier.padding(innerPadding)) {
+                if (cargando && progreso == 0f) {
+                    // Conectando con el servidor: barra animada sin porcentaje
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                } else if (cargando) {
+                    LinearProgressIndicator(
+                        progress = { progreso },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                ContentView()
+            }
+        }
     }
 }
 

@@ -2,6 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Necesario para abrir la app de Reloj/Alarmas (AlarmClock.ACTION_SHOW_ALARMS) -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <!-- Necesario para descargar el archivo de internet -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

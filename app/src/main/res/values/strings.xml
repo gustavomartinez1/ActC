@@ -22,4 +22,11 @@
     <string name="second_title">Second Activity</string>
     <string name="second_desc">Esta pantalla se abrió desde el ícono de compartir.</string>
     <string name="second_back">Regresar</string>
+    <string name="drawer_open">Abrir menú</string>
+    <string name="drawer_header">Menú principal</string>
+    <string name="drawer_home">Inicio</string>
+    <string name="drawer_second">Segunda pantalla</string>
+    <string name="drawer_download">Descargar archivo (corrutina)</string>
+    <string name="download_done">Descarga completa</string>
+    <string name="download_error">Error en la descarga. Revisa tu conexión a internet</string>
 </resources>

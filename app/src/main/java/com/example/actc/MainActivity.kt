@@ -163,7 +163,7 @@ fun openExternalApp(context: Context, intent: Intent, appName: String) {
     }
 }
 
-// Archivo de prueba público de 12.5 MB (servidor de pruebas de velocidad de OVH)
+// Archivo de prueba público de 100 MB (servidor de pruebas de velocidad de OVH)
 private const val URL_DESCARGA = "https://proof.ovh.net/files/100Mb.dat"
 
 // Descarga un archivo de internet y lo guarda en la memoria interna de la app.
